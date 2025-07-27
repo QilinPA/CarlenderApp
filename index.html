@@ -5,15 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ตัวช่วยนับวัน (30 วัน) สำหรับขาย YouTube Premium</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;line-height:1.6}
+    body{--card-bg:#fff;--result-bg:#f9fafb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;line-height:1.6}
+    body.theme-yellow{--card-bg:#fff9db;--result-bg:#fffbeb}
+    body.theme-orange{--card-bg:#ffe9d5;--result-bg:#fff5ed}
+    body.theme-red{--card-bg:#ffdede;--result-bg:#fff1f2}
+    body.theme-pastel{--card-bg:#f8f5ff;--result-bg:#f4f4fb}
     h1{font-size:1.4rem;margin-bottom:0.25rem}
-    .card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-top:12px}
+    .card{background:var(--card-bg);border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-top:12px}
     label{display:block;margin-top:10px}
     input,select,button{font-size:1rem;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;width:100%;box-sizing:border-box}
     button{cursor:pointer}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .muted{color:#6b7280;font-size:0.9rem}
-    .result{background:#f9fafb;border:1px dashed #d1d5db;border-radius:12px;padding:12px;margin-top:12px}
+    .result{background:var(--result-bg);border:1px dashed #d1d5db;border-radius:12px;padding:12px;margin-top:12px}
     .inline{display:flex;gap:8px;align-items:center}
   </style>
 </head>
@@ -26,8 +30,8 @@
   <div class="card">
     <div class="row">
       <div>
-        <label>วันที่ซื้อ (รูปแบบ DD/MM/YYYY)</label>
-        <input id="purchaseDate" placeholder="เช่น 28/07/2025" />
+        <label>วันที่ซื้อ</label>
+        <input id="purchaseDate" type="date" />
       </div>
       <div>
         <label>เวลาที่ซื้อ (รูปแบบ HH:MM, 24 ชม.)</label>
@@ -38,7 +42,12 @@
     <div class="row" style="margin-top:12px">
       <div>
         <label>จำนวนวันของแพ็ก</label>
-        <input id="planDays" type="number" value="30" min="1" />
+        <select id="planDays">
+          <option value="3">3</option>
+          <option value="7">7</option>
+          <option value="14">14</option>
+          <option value="30" selected>30</option>
+        </select>
       </div>
       <div>
         <label>เส้นตายเวลา (นับเป็นวันใหม่)</label>
@@ -46,6 +55,24 @@
           <input id="cutoffTime" value="22:15" />
           <span class="muted">HH:MM</span>
         </div>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>เลือกแอป</label>
+        <select id="appType">
+          <option value="youtube">YouTube</option>
+          <option value="netflix" selected>Netflix</option>
+        </select>
+      </div>
+      <div>
+        <label>ธีมสี</label>
+        <select id="theme">
+          <option value="yellow" selected>เหลือง</option>
+          <option value="orange">ส้ม</option>
+          <option value="red">แดง</option>
+          <option value="pastel">พาสเทล</option>
+        </select>
       </div>
     </div>
 
@@ -59,11 +86,10 @@
   </p>
 
 <script>
-function parseDateDDMMYYYY(s){
-  const m = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/.exec(s||"");
+function parseISODate(s){
+  const m = /^\d{4}-\d{2}-\d{2}$/.exec(s||'');
   if(!m) return null;
-  let d = parseInt(m[1],10), mo = parseInt(m[2],10), y = parseInt(m[3],10);
-  if(mo<1||mo>12||d<1||d>31) return null;
+  const [y, mo, d] = s.split('-').map(Number);
   return {y, mo, d};
 }
 function parseHHMM(s){
@@ -86,13 +112,32 @@ function formatThaiDate(d){
   return `${dateStr} (${weekday})`;
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('purchaseDate').valueAsDate = new Date();
+  const themeSel = document.getElementById('theme');
+  document.body.className = 'theme-' + themeSel.value;
+  themeSel.addEventListener('change', e => {
+    document.body.className = 'theme-' + e.target.value;
+  });
+  const appSel = document.getElementById('appType');
+  function updateCutoff(){
+    if(appSel.value === 'youtube'){
+      document.getElementById('cutoffTime').value = '00:00';
+    }else{
+      document.getElementById('cutoffTime').value = '22:15';
+    }
+  }
+  updateCutoff();
+  appSel.addEventListener('change', updateCutoff);
+});
+
 document.getElementById('calcBtn').addEventListener('click', () => {
   const purchaseDateStr = document.getElementById('purchaseDate').value;
   const purchaseTimeStr = document.getElementById('purchaseTime').value;
   const planDays = parseInt(document.getElementById('planDays').value, 10) || 30;
   const cutoffStr = document.getElementById('cutoffTime').value || "22:15";
 
-  const d = parseDateDDMMYYYY(purchaseDateStr);
+  const d = parseISODate(purchaseDateStr);
   const t = parseHHMM(purchaseTimeStr);
   const cutoff = parseHHMM(cutoffStr);
 
@@ -100,7 +145,7 @@ document.getElementById('calcBtn').addEventListener('click', () => {
 
   if(!d || !t || !cutoff){
     out.hidden = false;
-    out.innerHTML = "รูปแบบวันที่หรือเวลาไม่ถูกต้อง — โปรดกรอกเป็น DD/MM/YYYY และ HH:MM";
+    out.innerHTML = "รูปแบบวันที่หรือเวลาไม่ถูกต้อง";
     return;
   }
 
