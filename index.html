@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ตัวช่วยนับวัน (30 วัน) สำหรับขาย YouTube Premium</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;line-height:1.6}
+    h1{font-size:1.4rem;margin-bottom:0.25rem}
+    .card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-top:12px}
+    label{display:block;margin-top:10px}
+    input,select,button{font-size:1rem;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;width:100%;box-sizing:border-box}
+    button{cursor:pointer}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .muted{color:#6b7280;font-size:0.9rem}
+    .result{background:#f9fafb;border:1px dashed #d1d5db;border-radius:12px;padding:12px;margin-top:12px}
+    .inline{display:flex;gap:8px;align-items:center}
+  </style>
+</head>
+<body>
+  <h1>ตัวช่วยนับวัน สำหรับ App Premium</h1>
+  <p class="muted">
+    กติกา: นับวันที่ซื้อเป็น <b>วันแรก (Day 1)</b> และถ้าซื้อ <b>เวลา ≥ 22:15</b> จะถือว่าเริ่มนับ <b>วันถัดไป</b> ทันที
+  </p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>วันที่ซื้อ (รูปแบบ DD/MM/YYYY)</label>
+        <input id="purchaseDate" placeholder="เช่น 28/07/2025" />
+      </div>
+      <div>
+        <label>เวลาที่ซื้อ (รูปแบบ HH:MM, 24 ชม.)</label>
+        <input id="purchaseTime" placeholder="เช่น 21:30" />
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div>
+        <label>จำนวนวันของแพ็ก</label>
+        <input id="planDays" type="number" value="30" min="1" />
+      </div>
+      <div>
+        <label>เส้นตายเวลา (นับเป็นวันใหม่)</label>
+        <div class="inline">
+          <input id="cutoffTime" value="22:15" />
+          <span class="muted">HH:MM</span>
+        </div>
+      </div>
+    </div>
+
+    <button id="calcBtn" style="margin-top:14px">คำนวณ</button>
+
+    <div id="out" class="result" hidden></div>
+  </div>
+
+  <p class="muted">
+    เคล็ดลับ: ประเทศไทยไม่มี DST ดังนั้นการบวกวันแบบปกติจะไม่เหลื่อมเวลา แต่ควรตั้งเวลาเครื่องเป็นเขตเวลา <b>Asia/Bangkok</b> เพื่อการแสดงผลที่ถูกต้อง
+  </p>
+
+<script>
+function parseDateDDMMYYYY(s){
+  const m = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/.exec(s||"");
+  if(!m) return null;
+  let d = parseInt(m[1],10), mo = parseInt(m[2],10), y = parseInt(m[3],10);
+  if(mo<1||mo>12||d<1||d>31) return null;
+  return {y, mo, d};
+}
+function parseHHMM(s){
+  const m = /^\s*(\d{1,2}):(\d{2})\s*$/.exec(s||"");
+  if(!m) return null;
+  let hh = parseInt(m[1],10), mm = parseInt(m[2],10);
+  if(hh<0||hh>23||mm<0||mm>59) return null;
+  return {hh, mm};
+}
+function addDaysLocal(date, days){
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds());
+}
+function setTimeLocal(date, hh, mm, ss=0, ms=0){
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hh, mm, ss, ms);
+}
+function formatThaiDate(d){
+  // แสดงเป็น DD/MM/YYYY และชื่อวัน
+  const dateStr = d.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
+  const weekday = d.toLocaleDateString('th-TH', { weekday: 'short', timeZone: 'Asia/Bangkok' });
+  return `${dateStr} (${weekday})`;
+}
+
+document.getElementById('calcBtn').addEventListener('click', () => {
+  const purchaseDateStr = document.getElementById('purchaseDate').value;
+  const purchaseTimeStr = document.getElementById('purchaseTime').value;
+  const planDays = parseInt(document.getElementById('planDays').value, 10) || 30;
+  const cutoffStr = document.getElementById('cutoffTime').value || "22:15";
+
+  const d = parseDateDDMMYYYY(purchaseDateStr);
+  const t = parseHHMM(purchaseTimeStr);
+  const cutoff = parseHHMM(cutoffStr);
+
+  const out = document.getElementById('out');
+
+  if(!d || !t || !cutoff){
+    out.hidden = false;
+    out.innerHTML = "รูปแบบวันที่หรือเวลาไม่ถูกต้อง — โปรดกรอกเป็น DD/MM/YYYY และ HH:MM";
+    return;
+  }
+
+  // เวลา ณ วันที่ซื้อ
+  const purchase = new Date(d.y, d.mo - 1, d.d, t.hh, t.mm, 0, 0);
+  const cutoffAtPurchaseDay = new Date(d.y, d.mo - 1, d.d, cutoff.hh, cutoff.mm, 0, 0);
+
+  // กำหนดวันเริ่มนับ (Day 1)
+  let start = purchase >= cutoffAtPurchaseDay
+    ? new Date(d.y, d.mo - 1, d.d + 1, 0, 0, 0, 0) // หลังเส้นตาย: เริ่มวันถัดไป
+    : new Date(d.y, d.mo - 1, d.d, 0, 0, 0, 0);    // ก่อนเส้นตาย: เริ่มวันนี้
+
+  // ถ้านับวันแรกเป็น Day 1 => วันหมดอายุ = start + (planDays - 1) วัน (สิ้นวัน)
+  const expiryDate = addDaysLocal(start, planDays - 1);
+  const validUntil = setTimeLocal(expiryDate, 23, 59, 59, 999);
+  const nextRenew = addDaysLocal(expiryDate, 1);
+
+  const details = [
+    `<b>Day 1 เริ่ม:</b> ${formatThaiDate(start)}`,
+    `<b>หมดอายุ (Day ${planDays}):</b> ${formatThaiDate(expiryDate)}`,
+    `<b>ใช้ได้ถึง:</b> ${validUntil.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}`,
+    `<b>วันถัดไปที่แนะนำให้ต่ออายุ:</b> ${formatThaiDate(nextRenew)}`
+  ];
+
+  out.hidden = false;
+  out.innerHTML = details.map(x => `<div>${x}</div>`).join("");
+});
+</script>
+</body>
+</html>
